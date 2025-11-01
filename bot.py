@@ -2,7 +2,7 @@ import logging
 import os
 import sys
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
-from telegram.ext import Application, CommandHandler, CallbackContext, MessageHandler, filters
+from telegram.ext import Updater, CommandHandler, CallbackContext
 
 # Настройка логирования
 logging.basicConfig(
@@ -17,7 +17,7 @@ if not BOT_TOKEN:
     logger.error("❌ BOT_TOKEN не знайдено!")
     sys.exit(1)
 
-# Текст для описания бота
+# Текст для описания бота (будет показан при запуске)
 BOT_DESCRIPTION = """Ласкаво просимо до нашого магазину, де ви знайдете тільки найкращу техніку Apple — нову та б/у за вигідними цінами! 😊
 
 Відчуйте якість Apple з нашим асортиментом нових та сертифікованих пристроїв! 🍏
@@ -26,12 +26,22 @@ BOT_DESCRIPTION = """Ласкаво просимо до нашого магаз�
 
 Обирайте нові та сертифіковані продукти Apple — якість і інновації за доступною ціною тільки в нашому магазині! 💻"""
 
-# Текст приветствия
+# Текст приветствия с эмодзи
 WELCOME_TEXT = """🎉 Ласкаво просимо до нашого магазину!
 
 🌟 Вітаємо вас у нашому магазині — місці, де зручність і вигода завжди поруч!
 
-🛍️ **Щоб відкрити магазин**, просто натисніть кнопку "Магазин" нижче."""
+Ми раді, що ви завітали до нас. Тут ви знайдете великий вибір продукції за привабливими цінами, а також швидкий сервіс і надійну підтримку.
+
+🛍️ **Щоб відкрити магазин**, просто натисніть кнопку "Магазин" нижче. Він відкриється у зручному міні-додатку прямо в Telegram!
+
+🔹 Для вашої зручності ми додали меню, яке відкривається у нижньому кутку чату. Завдяки цьому ви з легкістю знайдете інформацію про оплату, доставку та гарантії.
+
+🔹 Якщо у вас є питання або потрібна допомога у виборі — пишіть нам у Instagram! Посилання на нашу сторінку є в меню.
+
+💬 Ми завжди готові допомогти вам знайти саме те, що вам потрібно!
+
+Дякуємо за ваш вибір та бажаємо приємних покупок! 💛"""
 
 # Ссылка на гифку
 GIF_URL = "https://i.gifer.com/3P0Ho.gif"
@@ -39,7 +49,7 @@ GIF_URL = "https://i.gifer.com/3P0Ho.gif"
 # URL для Web App
 WEB_APP_URL = "https://itconcerent.github.io/markesell/"
 
-async def start(update: Update, context: CallbackContext) -> None:
+def start(update: Update, context: CallbackContext) -> None:
     """Обработчик команды /start"""
     try:
         keyboard = [[
@@ -50,7 +60,7 @@ async def start(update: Update, context: CallbackContext) -> None:
         ]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_animation(
+        update.message.reply_animation(
             animation=GIF_URL,
             caption=WELCOME_TEXT,
             reply_markup=reply_markup,
@@ -60,8 +70,8 @@ async def start(update: Update, context: CallbackContext) -> None:
     except Exception as e:
         logger.error(f"Помилка: {e}")
 
-async def shop_command(update: Update, context: CallbackContext) -> None:
-    """Обработчик команды /shop"""
+def shop_command(update: Update, context: CallbackContext) -> None:
+    """Обработчик команды /shop для прямого открытия магазина"""
     try:
         keyboard = [[
             InlineKeyboardButton(
@@ -71,48 +81,46 @@ async def shop_command(update: Update, context: CallbackContext) -> None:
         ]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
-        await update.message.reply_text(
-            "🛍️ Натисніть кнопку нижче, щоб відкрити магазин:",
+        update.message.reply_text(
+            "🛍️ Натисніть кнопку нижче, щоб відкрити магазин у міні-додатку:",
             reply_markup=reply_markup
         )
     except Exception as e:
         logger.error(f"Помилка: {e}")
 
-async def setup_bot_commands(application: Application):
-    """Настройка команд бота"""
-    commands = [
-        ("start", "Запустити бота"),
-        ("shop", "Відкрити магазин")
-    ]
-    await application.bot.set_my_commands(commands)
-
-async def post_init(application: Application) -> None:
-    """Функция после инициализации"""
+def menu_command(update: Update, context: CallbackContext) -> None:
+    """Обработчик команды /menu для показа основного меню"""
     try:
-        await application.bot.set_my_description(BOT_DESCRIPTION)
-        await setup_bot_commands(application)
-        logger.info("✅ Налаштування бота завершено")
+        keyboard = [
+            [InlineKeyboardButton("🛍️ Магазин", web_app=WebAppInfo(url=WEB_APP_URL))],
+            [InlineKeyboardButton("📞 Підтримка", url="https://instagram.com")],
+            [InlineKeyboardButton("ℹ️ Про нас", callback_data="about")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        update.message.reply_text(
+            "🏪 **Головне меню**\n\nОберіть опцію:",
+            reply_markup=reply_markup,
+            parse_mode='HTML'
+        )
     except Exception as e:
-        logger.error(f"Помилка налаштування: {e}")
+        logger.error(f"Помилка: {e}")
 
 def main() -> None:
     """Запуск бота"""
     try:
-        application = (
-            Application.builder()
-            .token(BOT_TOKEN)
-            .post_init(post_init)
-            .build()
-        )
+        updater = Updater(BOT_TOKEN)
+        dispatcher = updater.dispatcher
         
-        application.add_handler(CommandHandler("start", start))
-        application.add_handler(CommandHandler("shop", shop_command))
+        dispatcher.add_handler(CommandHandler("start", start))
+        dispatcher.add_handler(CommandHandler("shop", shop_command))
+        dispatcher.add_handler(CommandHandler("menu", menu_command))
         
         logger.info("🤖 Бот запускається...")
         print("🤖 Бот запускається...")
         
-        # Простой запуск без дополнительных параметров
-        application.run_polling()
+        updater.start_polling()
+        updater.idle()
         
     except Exception as e:
         logger.error(f"❌ Помилка запуску: {e}")
